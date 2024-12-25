@@ -190,14 +190,29 @@ def login_user(request):
         }, status=status.HTTP_200_OK)
     else:
         return Response({"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
+@permission_classes([IsAuthenticated])
 @api_view(['POST'])
 def logout_user(request):
-
     try:
-        # Get the user's token
-        token = Token.objects.get(key=request.auth.key)
-        # Delete the token to log the user out
-        token.delete()
+        # Récupérer l'en-tête Authorization
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return Response({"error": "Authorization header missing."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Extraire le jeton du header "Bearer {token}"
+        token_key = auth_header.split()[1]  # Cela suppose que l'en-tête est sous la forme "Bearer {token}"
+
+        # Récupérer le jeton dans la base de données
+        token = Token.objects.get(key=token_key)
+        token.delete()  # Supprimer le token pour déconnecter l'utilisateur
         return Response({"message": "Logout successful"}, status=status.HTTP_200_OK)
+
     except Token.DoesNotExist:
         return Response({"error": "Token not found or already expired."}, status=status.HTTP_400_BAD_REQUEST)
+
+    except IndexError:
+        return Response({"error": "Invalid token format."}, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
